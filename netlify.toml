@@ -1,6 +1,7 @@
 [build]
-  command = "npm install && npm run build"
+  command = "npm install && npx webpack --mode production"
   publish = "dist"
 
 [build.environment]
   NODE_ENV = "production"
+  NODE_VERSION = "16" # Specify the Node.js version you're using
