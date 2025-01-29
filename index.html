@@ -35,9 +35,9 @@
 <body>
     <!-- Google Drive Analyzer Section -->
     <div class="section">
-        <h1>Drive Image Analyzer & Face Collection</h1>
+        <h1>Google drive public directory where the photos are</h1>
         <input type="text" id="gdriveUrl" placeholder="Paste Google Drive folder URL (e.g., https://drive.google.com/drive/folders/ABC123XYZ)">
-        <button onclick="processFolder()">Analyze Folder</button>
+        <button onclick="processFolder()">Find photos</button>
         <div id="error"></div>
         <div id="results">
             <h3>Found <span id="count">0</span> images</h3>
@@ -57,16 +57,16 @@
     </div>
     <script>
         // Google Drive Configuration
-        const API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
+        const API_KEY = process.env.GOOGLE_API_KEY;
         let storedImages = [];
         
         // AWS Configuration
         let rekognition;
         function initAWS() {
             AWS.config.update({
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-                region: process.env.AWS_REGION
+                accessKeyId: process.env.AWS_ACCESS_KEY,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS,
+                region: process.env.AWS_REGION_SELECTED
             });
             rekognition = new AWS.Rekognition();
         }
