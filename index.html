@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Found it for you - Search for a face in a directory with multiples photos</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 20px auto; 
+            padding: 0 20px; 
+        }
+        input { width: 100%; padding: 8px; margin: 10px 0; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #error { color: red; margin: 10px 0; }
+        .section { margin: 30px 0; border-top: 1px solid #ccc; padding-top: 20px; }
+        #uploadResults { margin-top: 10px; }
+        #faceUploadSection { display: none; }
+        #searchResults { margin-top: 10px; }
+        #counters {
+            margin-bottom: 10px;
+        }
+        #resultsArea {
+            width: 100%;
+            height: 300px; /* Adjust height as needed */
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+    </style>
+    <!-- Include the latest AWS SDK for JavaScript -->
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1364.0.min.js"></script>
+</head>
+<body>
+    <!-- Google Drive Analyzer Section -->
+    <div class="section">
+        <h1>Drive Image Analyzer & Face Collection</h1>
+        <input type="text" id="gdriveUrl" placeholder="Paste Google Drive folder URL (e.g., https://drive.google.com/drive/folders/ABC123XYZ)">
+        <button onclick="processFolder()">Analyze Folder</button>
+        <div id="error"></div>
+        <div id="results">
+            <h3>Found <span id="count">0</span> images</h3>
+        </div>
+    </div>
+    <!-- Face Collection Section -->
+    <div class="section" id="faceUploadSection">
+        <h2>Face Collection Upload</h2>
+        <input type="file" id="faceImage" accept="image/jpeg,image/png">
+        <button onclick="uploadFace()">Create Face Collection</button>
+        <div id="uploadResults"></div>
+        <div id="counters">
+            <p>Face matched: <span id="matchedCount">0</span></p>
+            <p>Not Matched: <span id="notMatchedCount">0</span></p>
+        </div>
+        <div id="resultsArea"></div> <!-- Changed from textarea to div -->
+    </div>
+    <script>
+        // Google Drive Configuration
+        const API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
+        let storedImages = [];
+        
+        // AWS Configuration
+        let rekognition;
+        function initAWS() {
+            AWS.config.update({
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+                region: process.env.AWS_REGION
+            });
+            rekognition = new AWS.Rekognition();
+        }
+        initAWS();
+
+        // Counters initialization
+        let matchedCount = 0;
+        let notMatchedCount = 0;
+
+        // Google Drive Functions
+        async function processFolder() {
+            clearResults();
+            const url = document.getElementById('gdriveUrl').value;
+            const folderId = extractFolderId(url);
+            if (!validateInput(url, folderId)) return;
+            storedImages = []; // Reset storedImages before starting
+            await fetchAllDriveFiles(folderId);
+            displayResults(storedImages);
+            toggleUploadSection(storedImages.length);
+        }
+
+        function extractFolderId(url) {
+            const regex = /folders\/([A-Za-z0-9_-]+)/;
+            const match = url.match(regex);
+            if (!match) {
+                showError('Invalid Google Drive folder URL format');
+                return null;
+            }
+            return match[1];
+        }
+
+        function validateInput(url, folderId) {
+            if (!folderId) {
+                showError('Invalid Google Drive folder URL');
+                return false;
+            }
+            return true;
+        }
+
+        async function fetchAllDriveFiles(folderId, nextPageToken = null) {
+            try {
+                const params = {
+                    q: `'${encodeURIComponent(folderId)}' in parents`,
+                    key: API_KEY,
+                    fields: 'nextPageToken, files(id, name, mimeType)',
+                    pageSize: 1000 // Adjust page size as needed
+                };
+                if (nextPageToken) {
+                    params.pageToken = nextPageToken;
+                }
+                const response = await fetch(`https://www.googleapis.com/drive/v3/files?${new URLSearchParams(params).toString()}`);
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+                // Append the fetched files to the storedImages array
+                storedImages = storedImages.concat(filterImageFiles(data.files));
+                // Check if there's another page of results
+                if (data.nextPageToken) {
+                    await fetchAllDriveFiles(folderId, data.nextPageToken);
+                }
+            } catch (error) {
+                console.error('Error fetching drive files:', error);
+                showError(`Error fetching drive files: ${error.message}`);
+                throw error;
+            }
+        }
+
+        function filterImageFiles(files) {
+            return files.filter(file => file.mimeType.startsWith('image/'));
+        }
+
+        function displayResults(images) {
+            document.getElementById('count').innerText = images.length;
+        }
+
+        function toggleUploadSection(hasImages) {
+            const faceUploadSection = document.getElementById('faceUploadSection');
+            if (hasImages > 0) {
+                faceUploadSection.style.display = 'block';
+            } else {
+                faceUploadSection.style.display = 'none';
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('count').innerText = '0';
+            document.getElementById('error').innerText = '';
+            clearSearchResults();
+        }
+
+        function showError(message) {
+            document.getElementById('error').innerText = message;
+        }
+
+        // AWS Face Collection Functions
+        async function uploadFace() {
+            clearUploadResults();
+            const fileInput = document.getElementById('faceImage');
+            const file = fileInput.files[0];
+            if (!validateImageFile(file)) return;
+            try {
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('File size exceeds 5MB limit');
+                    return;
+                }
+                const imageBytes = await readFileAsBytes(file);
+                const collectionId = `face-collection-${Date.now()}`;
+                
+                await rekognition.createCollection({ CollectionId: collectionId }).promise();
+                
+                const params = {
+                    CollectionId: collectionId,
+                    Image: { Bytes: imageBytes },
+                    MaxFaces: 1,
+                    QualityFilter: 'AUTO'
+                };
+                
+                const response = await rekognition.indexFaces(params).promise();
+                const faceId = response.FaceRecords[0].Face.FaceId;
+                displayUploadResults(collectionId, faceId);
+                // Search for the face in the images listed from Google Drive
+                await searchForFaceInImages(collectionId, faceId);
+            } catch (error) {
+                showError(`AWS Error: ${error.message}`);
+            }
+        }
+
+        function validateImageFile(file) {
+            if (!file) {
+                showError('Please select an image file.');
+                return false;
+            }
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                showError('Only JPEG and PNG images are allowed.');
+                return false;
+            }
+            return true;
+        }
+
+        function readFileAsBytes(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(new Uint8Array(e.target.result));
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function displayUploadResults(collectionId, faceId) {
+            document.getElementById('uploadResults').innerText = `Face uploaded to collection '${collectionId}' with ID '${faceId}'`;
+        }
+
+        function clearUploadResults() {
+            document.getElementById('uploadResults').innerText = '';
+        }
+
+        // Function to search for the face in images listed from Google Drive
+        async function searchForFaceInImages(collectionId, faceId) {
+            const searchResultsDiv = document.getElementById('resultsArea');
+            searchResultsDiv.innerHTML = ''; // Clear previous results
+            resetCounters();
+
+            for (const image of storedImages) {
+                try {
+                    const imageUrlLh3 = `https://lh3.googleusercontent.com/d/${image.id}=s1000`; // For AWS Rekognition
+                    const imageUrlDrive = `https://drive.google.com/file/d/${image.id}/view`; // For hyperlink
+                    const imageBytes = await fetchImageBytes(imageUrlLh3);
+
+                    const searchParams = {
+                        CollectionId: collectionId,
+                        Image: { Bytes: imageBytes },
+                        MaxFaces: 1,
+                        FaceMatchThreshold: 70,
+                        QualityFilter: 'AUTO'
+                    };
+
+                    const searchResponse = await rekognition.searchFacesByImage(searchParams).promise();
+                    
+                    if (searchResponse.FaceMatches && searchResponse.FaceMatches.length > 0) {
+                        const matchedFace = searchResponse.FaceMatches[0].Face;
+                        const resultText = `<a href="${imageUrlDrive}" target="_blank">${image.name}</a> - Face found with ID '${matchedFace.FaceId}'<br>`;
+                        appendResult(resultText);
+                        incrementCounter('matched');
+                    } else {
+                        const resultText = `${image.name} - No face matches found<br>`;
+                        appendResult(resultText);
+                        incrementCounter('notMatched');
+                    }
+
+                    // Delay for 0.1 second before processing the next image
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                } catch (error) {
+                    console.error(`Error searching for face in image '${image.name}':`, error);
+                    const resultText = `${image.name} - Error searching for face: ${error.message}<br>`;
+                    appendResult(resultText);
+                    incrementCounter('notMatched');
+                }
+            }
+        }
+
+        async function fetchImageBytes(imageUrl) {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            return new Uint8Array(arrayBuffer);
+        }
+
+        function appendResult(text) {
+            const resultsArea = document.getElementById('resultsArea');
+            resultsArea.innerHTML += text; // Using innerHTML to support hyperlinks
+            resultsArea.scrollTop = resultsArea.scrollHeight; // Auto-scroll to bottom
+        }
+
+        function incrementCounter(type) {
+            if (type === 'matched') {
+                matchedCount++;
+                document.getElementById('matchedCount').innerText = matchedCount;
+            } else if (type === 'notMatched') {
+                notMatchedCount++;
+                document.getElementById('notMatchedCount').innerText = notMatchedCount;
+            }
+        }
+
+        function resetCounters() {
+            matchedCount = 0;
+            notMatchedCount = 0;
+            document.getElementById('matchedCount').innerText = matchedCount;
+            document.getElementById('notMatchedCount').innerText = notMatchedCount;
+        }
+
+        function clearSearchResults() {
+            document.getElementById('resultsArea').innerHTML = '';
+            resetCounters();
+        }
+    </script>
+</body>
+</html>
