@@ -3,5 +3,5 @@
   publish = "dist"
 
 [build.environment]
-  NODE_ENV = "production"
+  NODE_ENV = "development"
   NODE_VERSION = "16" # Specify the Node.js version you're using
