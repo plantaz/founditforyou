@@ -13,5 +13,6 @@ module.exports = {
         new webpack.DefinePlugin({
             'process.env': JSON.stringify(process.env)
         })
-    ]
+    ],
+    mode: process.env.NODE_ENV || 'development' // Use development mode if NODE_ENV is not set
 };
