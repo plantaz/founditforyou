@@ -6,9 +6,9 @@ let rekognition;
 // Initialize AWS Rekognition with environment variables
 async function initAWS() {
     AWS.config.update({
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        region: process.env.AWS_REGION
+        accessKeyId: process.env.AWS_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS,
+        region: process.env.AWS_REGION_SELECTED
     });
     rekognition = new AWS.Rekognition();
 }
