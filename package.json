@@ -11,7 +11,7 @@
     "devDependencies": {
       "aws-sdk": "^2.1364.0",
       "dotenv-webpack": "^7.0.3",
-      "webpack": "^5.75.0",
+      "webpack": "latest",
       "webpack-cli": "^4.10.0"
     },
     "dependencies": {
