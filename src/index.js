@@ -8,7 +8,7 @@ async function initAWS() {
     AWS.config.update({
         accessKeyId: process.env.MY_AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.MY_AWS_SECRET_ACCESS_KEY,
-        region: process.env.MY_AWS_REGION
+        region: process.env.MY_AWS_REGION // Ensure this line uses the correct env var
     });
     rekognition = new AWS.Rekognition();
 }
