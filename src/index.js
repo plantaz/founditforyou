@@ -5,10 +5,19 @@ let rekognition;
 
 // Initialize AWS Rekognition with environment variables
 async function initAWS() {
+    console.log('AWS Access Key ID:', process.env.MY_AWS_ACCESS_KEY_ID);
+    console.log('AWS Secret Access Key:', process.env.MY_AWS_SECRET_ACCESS_KEY);
+    console.log('AWS Region:', process.env.MY_AWS_REGION);
+
+    if (!process.env.MY_AWS_REGION) {
+        console.error('AWS Region is missing!');
+        throw new Error('AWS Region is missing!');
+    }
+
     AWS.config.update({
         accessKeyId: process.env.MY_AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.MY_AWS_SECRET_ACCESS_KEY,
-        region: process.env.MY_AWS_REGION // Ensure this line uses the correct env var
+        region: process.env.MY_AWS_REGION
     });
     rekognition = new AWS.Rekognition();
 }
