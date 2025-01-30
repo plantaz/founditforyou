@@ -6,9 +6,9 @@ let rekognition;
 // Initialize AWS Rekognition with environment variables
 async function initAWS() {
     AWS.config.update({
-        accessKeyId: process.env.AWS_ACCESS_KEY,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS,
-        region: process.env.AWS_REGION_SELECTED
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        region: process.env.AWS_REGION
     });
     rekognition = new AWS.Rekognition();
 }
@@ -32,19 +32,16 @@ function validateInput(url, folderId) {
     return true;
 }
 
-// Function to fetch all files from a Google Drive folder
-async function fetchAllDriveFiles(folderId, apiKey, nextPageToken = null) {
+// Function to fetch all files from a Google Drive folder via Netlify Function
+async function fetchAllDriveFiles(folderId) {
     try {
-        const params = {
-            q: `'${encodeURIComponent(folderId)}' in parents`,
-            key: apiKey,
-            fields: 'nextPageToken, files(id, name, mimeType)',
-            pageSize: 1000 // Adjust page size as needed
-        };
-        if (nextPageToken) {
-            params.pageToken = nextPageToken;
-        }
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files?${new URLSearchParams(params).toString()}`);
+        const response = await fetch('/.netlify/functions/fetchDriveFiles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ folderId })
+        });
         const data = await response.json();
         if (data.error) {
             throw new Error(data.error.message);
@@ -53,7 +50,7 @@ async function fetchAllDriveFiles(folderId, apiKey, nextPageToken = null) {
         storedImages = storedImages.concat(filterImageFiles(data.files));
         // Check if there's another page of results
         if (data.nextPageToken) {
-            await fetchAllDriveFiles(folderId, apiKey, data.nextPageToken);
+            await fetchAllDriveFiles(folderId, data.nextPageToken);
         }
     } catch (error) {
         console.error('Error fetching drive files:', error);
@@ -119,8 +116,7 @@ async function processFolder() {
     const folderId = extractFolderId(url);
     if (!validateInput(url, folderId)) return;
     storedImages = []; // Reset storedImages before starting
-    const apiKey = process.env.GOOGLE_API_KEY; // Load API key from environment variables
-    await fetchAllDriveFiles(folderId, apiKey);
+    await fetchAllDriveFiles(folderId);
     displayResults(storedImages);
     toggleUploadSection(storedImages.length);
 }
@@ -153,8 +149,7 @@ async function uploadFace() {
         const faceId = response.FaceRecords[0].Face.FaceId;
         displayUploadResults(collectionId, faceId);
         // Search for the face in the images listed from Google Drive
-        const apiKey = process.env.GOOGLE_API_KEY;
-        await searchForFaceInImages(collectionId, faceId, apiKey);
+        await searchForFaceInImages(collectionId, faceId);
     } catch (error) {
         showError(`AWS Error: ${error.message}`);
     }
@@ -194,7 +189,7 @@ function clearUploadResults() {
 }
 
 // Function to search for the face in images listed from Google Drive
-async function searchForFaceInImages(collectionId, faceId, apiKey) {
+async function searchForFaceInImages(collectionId, faceId) {
     const searchResultsDiv = document.getElementById('resultsArea');
     searchResultsDiv.innerHTML = ''; // Clear previous results
     resetCounters();
@@ -272,20 +267,39 @@ function resetCounters() {
     document.getElementById('notMatchedCount').innerText = notMatchedCount;
 }
 
-// Function to handle the HTML DOM elements
+// Main functions exposed to the global scope
 window.onload = async () => {
     await initApp();
     document.getElementById('analyzeFolderButton').addEventListener('click', processFolder);
     document.getElementById('uploadButton').addEventListener('click', uploadFace);
 };
 
-// Main functions exposed to the global scope
-globalThis.processFolder = processFolder;
-globalThis.uploadFace = uploadFace;
-globalThis.showError = showError;
-globalThis.clearResults = clearResults;
-globalThis.clearUploadResults = clearUploadResults;
-globalThis.initApp = initApp;
+// Handle pagination in fetchAllDriveFiles
+async function fetchAllDriveFiles(folderId, nextPageToken = null) {
+    try {
+        const response = await fetch('/.netlify/functions/fetchDriveFiles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ folderId, nextPageToken })
+        });
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+        // Append the fetched files to the storedImages array
+        storedImages = storedImages.concat(filterImageFiles(data.files));
+        // Check if there's another page of results
+        if (data.nextPageToken) {
+            await fetchAllDriveFiles(folderId, data.nextPageToken);
+        }
+    } catch (error) {
+        console.error('Error fetching drive files:', error);
+        showError(`Error fetching drive files: ${error.message}`);
+        throw error;
+    }
+}
 
 // Initial counters
 let matchedCount = 0;

@@ -2,6 +2,6 @@
   command = "npm install && npx webpack --mode production"
   publish = "dist"
 
-[build.environment]
-  NODE_ENV = "development"
-  NODE_VERSION = "16" # Specify the Node.js version you're using
+[[functions]]
+  # Ensure Netlify recognizes the functions directory
+  directory = "functions"
