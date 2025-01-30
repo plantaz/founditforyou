@@ -282,10 +282,3 @@ window.onload = async () => {
 // Initial counters
 let matchedCount = 0;
 let notMatchedCount = 0;
-
-// Function to handle switching between pages
-function showPage(pageId) {
-    const pages = document.querySelectorAll('.page');
-    pages.forEach(page => page.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
-}
