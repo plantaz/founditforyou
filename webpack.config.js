@@ -12,7 +12,13 @@ module.exports = {
     plugins: [
         new Dotenv(),
         new webpack.DefinePlugin({
-            'process.env': JSON.stringify(process.env)
+            'process.env': JSON.stringify({
+                AWS_ACCESS_KEY: JSON.stringify(process.env.AWS_ACCESS_KEY),
+                AWS_SECRET_ACCESS: JSON.stringify(process.env.AWS_SECRET_ACCESS),
+                AWS_REGION_SELECTED: JSON.stringify(process.env.AWS_REGION_SELECTED),
+                GOOGLE_API_KEY: JSON.stringify(process.env.GOOGLE_API_KEY),
+                NODE_ENV: JSON.stringify(process.env.NODE_ENV)
+            })
         }),
         new HtmlWebpackPlugin({
             template: './index.html', // Path to your HTML template

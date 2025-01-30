@@ -6,9 +6,9 @@ let rekognition;
 // Initialize AWS Rekognition with environment variables
 async function initAWS() {
     AWS.config.update({
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        region: process.env.AWS_REGION
+        accessKeyId: process.env.AWS_ACCESS_KEY,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS,
+        region: process.env.AWS_REGION_SELECTED
     });
     rekognition = new AWS.Rekognition();
 }
@@ -33,14 +33,14 @@ function validateInput(url, folderId) {
 }
 
 // Function to fetch all files from a Google Drive folder via Netlify Function
-async function fetchAllDriveFiles(folderId) {
+async function fetchAllDriveFiles(folderId, nextPageToken = null) {
     try {
         const response = await fetch('/.netlify/functions/fetchDriveFiles', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ folderId })
+            body: JSON.stringify({ folderId, nextPageToken })
         });
         const data = await response.json();
         if (data.error) {
@@ -273,33 +273,6 @@ window.onload = async () => {
     document.getElementById('analyzeFolderButton').addEventListener('click', processFolder);
     document.getElementById('uploadButton').addEventListener('click', uploadFace);
 };
-
-// Handle pagination in fetchAllDriveFiles
-async function fetchAllDriveFiles(folderId, nextPageToken = null) {
-    try {
-        const response = await fetch('/.netlify/functions/fetchDriveFiles', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ folderId, nextPageToken })
-        });
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error.message);
-        }
-        // Append the fetched files to the storedImages array
-        storedImages = storedImages.concat(filterImageFiles(data.files));
-        // Check if there's another page of results
-        if (data.nextPageToken) {
-            await fetchAllDriveFiles(folderId, data.nextPageToken);
-        }
-    } catch (error) {
-        console.error('Error fetching drive files:', error);
-        showError(`Error fetching drive files: ${error.message}`);
-        throw error;
-    }
-}
 
 // Initial counters
 let matchedCount = 0;
