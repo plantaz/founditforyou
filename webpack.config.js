@@ -15,7 +15,7 @@ module.exports = {
             'process.env': JSON.stringify({
                 AWS_ACCESS_KEY: JSON.stringify(process.env.MY_AWS_ACCESS_KEY_ID),
                 AWS_SECRET_ACCESS: JSON.stringify(process.env.MY_AWS_SECRET_ACCESS_KEY),
-                AWS_REGION_SELECTED: JSON.stringify(process.env.MY_AWS_REGION),
+                AWS_REGION: JSON.stringify(process.env.MY_AWS_REGION),
                 GOOGLE_API_KEY: JSON.stringify(process.env.MY_GOOGLE_API_KEY),
                 NODE_ENV: JSON.stringify(process.env.NODE_ENV)
             })
