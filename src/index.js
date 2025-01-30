@@ -275,6 +275,8 @@ window.onload = async () => {
     await initApp();
     document.getElementById('analyzeFolderButton').addEventListener('click', processFolder);
     document.getElementById('uploadButton').addEventListener('click', uploadFace);
+    document.getElementById('backButtonPage2').addEventListener('click', () => showPage('page1'));
+    document.getElementById('backButtonPage3').addEventListener('click', () => showPage('page2'));
 };
 
 // Initial counters
@@ -282,5 +284,8 @@ let matchedCount = 0;
 let notMatchedCount = 0;
 
 // Function to handle switching between pages
-document.getElementById('analyzeFolderButton').addEventListener('click', processFolder);
-document.getElementById('uploadButton').addEventListener('click', uploadFace);
+function showPage(pageId) {
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(page => page.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+}
