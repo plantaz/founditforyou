@@ -15,7 +15,8 @@ module.exports = {
             'process.env.MY_AWS_ACCESS_KEY_ID': JSON.stringify(process.env.MY_AWS_ACCESS_KEY_ID),
             'process.env.MY_AWS_SECRET_ACCESS_KEY': JSON.stringify(process.env.MY_AWS_SECRET_ACCESS_KEY),
             'process.env.MY_AWS_REGION': JSON.stringify(process.env.MY_AWS_REGION),
-            'process.env.MY_GOOGLE_API_KEY': JSON.stringify(process.env.MY_GOOGLE_API_KEY)
+            'process.env.MY_GOOGLE_API_KEY': JSON.stringify(process.env.MY_GOOGLE_API_KEY),
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
         }),
         new HtmlWebpackPlugin({
             template: './index.html', // Path to your HTML template

@@ -14,9 +14,8 @@
         button:hover { background: #0056b3; }
         #error { color: red; margin: 10px 0; }
         .section { margin: 30px 0; border-top: 1px solid #ccc; padding-top: 20px; }
-        #uploadResults { margin-top: 10px; }
-        #faceUploadSection { display: none; }
-        #searchResults { margin-top: 10px; }
+        .page { display: none; }
+        .active { display: block; }
         #counters {
             margin-bottom: 10px;
         }
@@ -29,13 +28,12 @@
             box-sizing: border-box;
         }
     </style>
-    <!-- Include the bundled JS file -->
-    <script src="/bundle.js"></script>
 </head>
 <body>
-    <!-- Google Drive Analyzer Section -->
-    <div class="section">
-        <h1>Google Drive Image Counter</h1>
+    <!-- Page 1: Submit Google Drive URL -->
+    <div id="page1" class="page active">
+        <h1>Drive Image Analyzer & Face Collection</h1>
+        <h2>Google Drive Image Counter</h2>
         <input type="text" id="gdriveUrl" placeholder="Paste Google Drive folder URL (e.g., https://drive.google.com/drive/folders/ABC123XYZ)">
         <button id="analyzeFolderButton">Analyze Folder</button>
         <div id="error"></div>
@@ -43,9 +41,20 @@
             <h3>Found <span id="count">0</span> images</h3>
         </div>
     </div>
-    <!-- Face Collection Section -->
-    <div class="section" id="faceUploadSection">
-        <h2>Face Collection Upload</h2>
+
+    <!-- Page 2: Upload Face Image -->
+    <div id="page2" class="page">
+        <h1>Drive Image Analyzer & Face Collection</h1>
+        <h2>We found <span id="foundImagesCount">0</span> photos in this directory!</h2>
+        <p>Now upload a clear photo of the face you want to search, consider these recommendations for better results:</p>
+        <ol>
+            <li>Face is well-lit (no shadows or glare).</li>
+            <li>Eyes are open and looking at the camera.</li>
+            <li>Neutral expression (no smiling or frowning).</li>
+            <li>No hats, glasses, or obstructions covering the face.</li>
+            <li>Use a plain, non-distracting background.</li>
+            <li>Photo is clear, sharp, and high-resolution.</li>
+        </ol>
         <input type="file" id="faceImage" accept="image/jpeg,image/png">
         <button id="uploadButton">Create Face Collection</button>
         <div id="uploadResults"></div>
@@ -53,7 +62,19 @@
             <p>Face matched: <span id="matchedCount">0</span></p>
             <p>Not Matched: <span id="notMatchedCount">0</span></p>
         </div>
-        <div id="resultsArea"></div> <!-- Changed from textarea to div -->
     </div>
+
+    <!-- Page 3: Display Results -->
+    <div id="page3" class="page">
+        <h1>Drive Image Analyzer & Face Collection</h1>
+        <h2>Searching...</h2>
+        <div id="searchingMessage">
+            We are searching for the face in the photos of the directory, you can follow the process in the panel above!
+            <br><strong>Warning:</strong> Leave this browser tab open until the search is over!
+        </div>
+        <div id="resultsArea"></div>
+    </div>
+
+    <script src="/bundle.js"></script>
 </body>
 </html>

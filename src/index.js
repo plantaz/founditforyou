@@ -5,19 +5,10 @@ let rekognition;
 
 // Initialize AWS Rekognition with environment variables
 async function initAWS() {
-    console.log('AWS Access Key ID:', process.env.MY_AWS_ACCESS_KEY_ID);
-    console.log('AWS Secret Access Key:', process.env.MY_AWS_SECRET_ACCESS_KEY);
-    console.log('AWS Region:', process.env.MY_AWS_REGION);
-
-    if (!process.env.MY_AWS_REGION) {
-        console.error('AWS Region is missing!');
-        throw new Error('AWS Region is missing!');
-    }
-
     AWS.config.update({
         accessKeyId: process.env.MY_AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.MY_AWS_SECRET_ACCESS_KEY,
-        region: process.env.MY_AWS_REGION
+        region: process.env.MY_AWS_REGION // Ensure this line uses the correct env var
     });
     rekognition = new AWS.Rekognition();
 }
@@ -76,16 +67,14 @@ function filterImageFiles(files) {
 // Function to display the number of images found
 function displayResults(images) {
     document.getElementById('count').innerText = images.length;
+    document.getElementById('foundImagesCount').innerText = images.length;
 }
 
-// Function to toggle visibility of the upload section based on the number of images
-function toggleUploadSection(hasImages) {
-    const faceUploadSection = document.getElementById('faceUploadSection');
-    if (hasImages > 0) {
-        faceUploadSection.style.display = 'block';
-    } else {
-        faceUploadSection.style.display = 'none';
-    }
+// Function to toggle visibility of the pages
+function showPage(pageId) {
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(page => page.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
 }
 
 // Function to clear search results
@@ -127,7 +116,11 @@ async function processFolder() {
     storedImages = []; // Reset storedImages before starting
     await fetchAllDriveFiles(folderId);
     displayResults(storedImages);
-    toggleUploadSection(storedImages.length);
+    if (storedImages.length > 0) {
+        showPage('page2');
+    } else {
+        showError('No images found in the specified directory.');
+    }
 }
 
 // Function to upload a face to the collection
@@ -157,6 +150,7 @@ async function uploadFace() {
         const response = await rekognition.indexFaces(params).promise();
         const faceId = response.FaceRecords[0].Face.FaceId;
         displayUploadResults(collectionId, faceId);
+        showPage('page3');
         // Search for the face in the images listed from Google Drive
         await searchForFaceInImages(collectionId, faceId);
     } catch (error) {
@@ -286,3 +280,7 @@ window.onload = async () => {
 // Initial counters
 let matchedCount = 0;
 let notMatchedCount = 0;
+
+// Function to handle switching between pages
+document.getElementById('analyzeFolderButton').addEventListener('click', processFolder);
+document.getElementById('uploadButton').addEventListener('click', uploadFace);
