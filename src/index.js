@@ -1,17 +1,8 @@
-import AWS from 'aws-sdk';
+import axios from 'axios';
+import * as faceapi from 'face-api.js';
 
 let storedImages = [];
-let rekognition;
-
-// Initialize AWS Rekognition with environment variables
-async function initAWS() {
-    AWS.config.update({
-        accessKeyId: process.env.MY_AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.MY_AWS_SECRET_ACCESS_KEY,
-        region: process.env.MY_AWS_REGION // Ensure this line uses the correct env var
-    });
-    rekognition = new AWS.Rekognition();
-}
+let referenceFaceDescriptor;
 
 // Function to extract folder ID from Google Drive URL
 function extractFolderId(url) {
@@ -95,16 +86,13 @@ function clearSearchResults() {
     resetCounters();
 }
 
-// Function to initialize the app and load AWS credentials
+// Function to initialize the app and load models
 async function initApp() {
-    try {
-        await initAWS(); // Initialize AWS Rekognition with environment variables
-        console.log('AWS initialized successfully.');
-    } catch (error) {
-        console.error('Error initializing AWS:', error);
-        showError('Failed to initialize AWS.');
-        throw error;
-    }
+    await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+    await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+    await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+    await faceapi.nets.faceExpressionNet.loadFromUri('/models');
+    console.log('Models loaded successfully.');
 }
 
 // Function to process the selected Google Drive folder
@@ -129,32 +117,22 @@ async function uploadFace() {
     const fileInput = document.getElementById('faceImage');
     const file = fileInput.files[0];
     if (!validateImageFile(file)) return;
+
     try {
-        await initAWS(); // Initialize AWS Rekognition with environment variables
-        if (file.size > 5 * 1024 * 1024) {
-            showError('File size exceeds 5MB limit');
-            return;
+        const img = await loadImageFromFile(file);
+        const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+
+        if (!detections || !detections.descriptor) {
+            throw new Error('No face detected in the uploaded image.');
         }
-        const imageBytes = await readFileAsBytes(file);
+
+        referenceFaceDescriptor = detections.descriptor;
         const collectionId = `face-collection-${Date.now()}`;
-        
-        await rekognition.createCollection({ CollectionId: collectionId }).promise();
-        
-        const params = {
-            CollectionId: collectionId,
-            Image: { Bytes: imageBytes },
-            MaxFaces: 1,
-            QualityFilter: 'AUTO'
-        };
-        
-        const response = await rekognition.indexFaces(params).promise();
-        const faceId = response.FaceRecords[0].Face.FaceId;
-        displayUploadResults(collectionId, faceId);
+        displayUploadResults(collectionId, 'Reference Face');
         showPage('page3');
-        // Search for the face in the images listed from Google Drive
-        await searchForFaceInImages(collectionId, faceId);
+        await searchForFaceInImages(referenceFaceDescriptor);
     } catch (error) {
-        showError(`AWS Error: ${error.message}`);
+        showError(`Error uploading face: ${error.message}`);
     }
 }
 
@@ -171,13 +149,17 @@ function validateImageFile(file) {
     return true;
 }
 
-// Function to read an image file as bytes
-function readFileAsBytes(file) {
+// Function to read an image file as an Image object
+async function loadImageFromFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = e => resolve(new Uint8Array(e.target.result));
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
+        reader.onload = e => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+        };
+        reader.readAsDataURL(file);
     });
 }
 
@@ -192,30 +174,31 @@ function clearUploadResults() {
 }
 
 // Function to search for the face in images listed from Google Drive
-async function searchForFaceInImages(collectionId, faceId) {
+async function searchForFaceInImages(referenceDescriptor) {
     const searchResultsDiv = document.getElementById('resultsArea');
     searchResultsDiv.innerHTML = ''; // Clear previous results
     resetCounters();
 
     for (const image of storedImages) {
         try {
-            const imageUrlLh3 = `https://lh3.googleusercontent.com/d/${image.id}=s1000`; // For AWS Rekognition
+            const imageUrlLh3 = `https://lh3.googleusercontent.com/d/${image.id}=s1000`; // For face-api.js
             const imageUrlDrive = `https://drive.google.com/file/d/${image.id}/view`; // For hyperlink
-            const imageBytes = await fetchImageBytes(imageUrlLh3);
 
-            const searchParams = {
-                CollectionId: collectionId,
-                Image: { Bytes: imageBytes },
-                MaxFaces: 1,
-                FaceMatchThreshold: 70,
-                QualityFilter: 'AUTO'
-            };
+            const img = await loadImageFromUrl(imageUrlLh3);
+            const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
 
-            const searchResponse = await rekognition.searchFacesByImage(searchParams).promise();
-            
-            if (searchResponse.FaceMatches && searchResponse.FaceMatches.length > 0) {
-                const matchedFace = searchResponse.FaceMatches[0].Face;
-                const resultText = `<a href="${imageUrlDrive}" target="_blank">${image.name}</a> - Face found with ID '${matchedFace.FaceId}'<br>`;
+            if (!detections || !detections.descriptor) {
+                const resultText = `${image.name} - No face matches found<br>`;
+                appendResult(resultText);
+                incrementCounter('notMatched');
+                continue;
+            }
+
+            const targetDescriptor = detections.descriptor;
+            const distance = faceapi.euclideanDistance(referenceDescriptor, targetDescriptor);
+
+            if (distance < 0.6) { // Threshold value for similarity
+                const resultText = `<a href="${imageUrlDrive}" target="_blank">${image.name}</a> - Face found<br>`;
                 appendResult(resultText);
                 incrementCounter('matched');
             } else {
@@ -236,12 +219,17 @@ async function searchForFaceInImages(collectionId, faceId) {
     }
 }
 
-// Function to fetch image bytes for AWS Rekognition
-async function fetchImageBytes(imageUrl) {
+// Function to fetch image bytes for face-api.js
+async function loadImageFromUrl(imageUrl) {
     const response = await fetch(imageUrl);
     const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+    const img = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    return canvas;
 }
 
 // Function to append results to the results area

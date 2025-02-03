@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 exports.handler = async (event) => {
-    const { folderId } = JSON.parse(event.body);
+    const { folderId, nextPageToken } = JSON.parse(event.body);
     const GOOGLE_API_KEY = process.env.MY_GOOGLE_API_KEY;
 
     if (!GOOGLE_API_KEY) {
