@@ -1,5 +1,5 @@
 const path = require('path');
-const { CopyPlugin } = require('copy-webpack-plugin'); // Ensure this line is correct
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
     entry: './src/index.js',
