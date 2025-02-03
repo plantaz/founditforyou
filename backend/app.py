@@ -1,11 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv  # Import load_dotenv
 import os
 import requests
-
-# Load environment variables from .env file
-load_dotenv()  # Ensure this line is present
 
 app = Flask(__name__)
 
@@ -13,7 +9,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://founditforyou.netlify.app"}})
 
 # Load environment variables
-GOOGLE_API_KEY = os.getenv('MY_GOOGLE_API_KEY')  # Access the API key from the environment
+GOOGLE_API_KEY = os.getenv('MY_GOOGLE_API_KEY')  # Access the environment variable
 
 @app.route('/fetch_drive_files', methods=['POST', 'OPTIONS'])
 def fetch_drive_files():
@@ -48,6 +44,6 @@ def fetch_drive_files():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print(f"Google API Key: {GOOGLE_API_KEY}")  # Log the API key during startup
+    print(f"Google API Key Loaded: {GOOGLE_API_KEY}")  # Log the API key during startup
     port = int(os.environ.get('PORT', 10000))  # Default port is 10000
     app.run(debug=True, host='0.0.0.0', port=port)
