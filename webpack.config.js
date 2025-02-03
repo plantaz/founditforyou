@@ -19,7 +19,7 @@ module.exports = {
             template: './index.html', // Path to your HTML template
             filename: 'index.html' // Output file name
         }),
-        new CopyWebpackPlugin({
+        new CopyPlugin({
             patterns: [
                 { from: 'models', to: 'models' } // Copy /models to dist/models
             ]
