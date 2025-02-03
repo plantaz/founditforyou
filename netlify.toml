@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npx webpack --mode production"
+  command = "npx npm install && npx webpack --mode production"
   publish = "dist"
 
 [functions]
