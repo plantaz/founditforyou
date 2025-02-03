@@ -9,7 +9,7 @@ from io import BytesIO
 app = Flask(__name__)
 
 # Load environment variables
-GOOGLE_API_KEY = os.getenv('MY_GOoggle_api_key')
+GOOGLE_API_KEY = os.getenv('MY_GOOGLE_API_KEY')
 
 @app.route('/fetch_drive_files', methods=['POST'])
 def fetch_drive_files():
@@ -17,7 +17,7 @@ def fetch_drive_files():
     next_page_token = request.json.get('nextPageToken')
 
     params = {
-        'q': f"'{folderId}' in parents",
+        'q': f"'{folder_id}' in parents",
         'key': GOOGLE_API_KEY,
         'fields': 'nextPageToken, files(id, name, mimeType)',
         'pageSize': 1000
@@ -94,4 +94,5 @@ def search_faces():
     return jsonify(results)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(debug=True, host='0.0.0.0', port=port)
