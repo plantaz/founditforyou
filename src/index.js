@@ -88,11 +88,20 @@ function clearSearchResults() {
 
 // Function to initialize the app and load models
 async function initApp() {
-    await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-    await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-    await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
-    await faceapi.nets.faceExpressionNet.loadFromUri('/models');
-    console.log('Models loaded successfully.');
+    try {
+        // Load all necessary models using Promise.all for parallel loading
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+            faceapi.nets.faceExpressionNet.loadFromUri('/models')
+        ]);
+        console.log('All models loaded successfully.');
+    } catch (error) {
+        console.error('Error loading models:', error);
+        showError('Failed to load face detection models.');
+        throw error;
+    }
 }
 
 // Function to process the selected Google Drive folder
