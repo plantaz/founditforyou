@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS
 import os
 from deepface import DeepFace
 import cv2
@@ -15,8 +15,11 @@ CORS(app, resources={r"/*": {"origins": "https://founditforyou.netlify.app"}})
 # Load environment variables
 GOOGLE_API_KEY = os.getenv('MY_GOOGLE_API_KEY')
 
-@app.route('/fetch_drive_files', methods=['POST'])
+@app.route('/fetch_drive_files', methods=['POST', 'OPTIONS'])  # Add OPTIONS method for preflight
 def fetch_drive_files():
+    if request.method == 'OPTIONS':  # Handle preflight request
+        return '', 200
+
     folder_id = request.json.get('folderId')
     next_page_token = request.json.get('nextPageToken')
 
@@ -38,7 +41,7 @@ def fetch_drive_files():
 
     return jsonify(data)
 
-@app.route('/analyze_face', methods=['POST', 'OPTIONS'])  # Add OPTIONS method for preflight requests
+@app.route('/analyze_face', methods=['POST', 'OPTIONS'])  # Add OPTIONS method for preflight
 def analyze_face():
     if request.method == 'OPTIONS':  # Handle preflight request
         return '', 200
@@ -63,7 +66,7 @@ def analyze_face():
         if os.path.exists(ref_img_path):
             os.remove(ref_img_path)
 
-@app.route('/search_faces', methods=['POST', 'OPTIONS'])  # Add OPTIONS method for preflight requests
+@app.route('/search_faces', methods=['POST', 'OPTIONS'])  # Add OPTIONS method for preflight
 def search_faces():
     if request.method == 'OPTIONS':  # Handle preflight request
         return '', 200
@@ -104,5 +107,5 @@ def search_faces():
     return jsonify(results)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))  # Bind to the specified port
+    port = int(os.environ.get('PORT', 10000))  # Change default port to 10000
     app.run(debug=True, host='0.0.0.0', port=port)
