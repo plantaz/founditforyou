@@ -24,7 +24,7 @@ function validateInput(url, folderId) {
 // Function to fetch all files from a Google Drive folder via Render Backend
 async function fetchAllDriveFiles(folderId, nextPageToken = null) {
     try {
-        const response = await fetch('https://your-backend.onrender.com/fetch_drive_files', {
+        const response = await fetch('https://founditforyou.onrender.com/fetch_drive_files', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -116,7 +116,7 @@ async function uploadFace() {
         const formData = new FormData();
         formData.append('referenceImage', file);
 
-        const response = await fetch('https://your-backend.onrender.com/analyze_face', {
+        const response = await fetch('https://founditforyou.onrender.com/analyze_face', {
             method: 'POST',
             body: formData
         });
@@ -148,7 +148,7 @@ async function searchForFaceInImages(collectionId, referenceImage) {
     formData.append('targetImages', JSON.stringify(targetImages));
 
     try {
-        const response = await fetch('https://your-backend.onrender.com/search_faces', {
+        const response = await fetch('https://founditforyou.onrender.com/search_faces', {
             method: 'POST',
             body: formData
         });
