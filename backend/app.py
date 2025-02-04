@@ -25,7 +25,7 @@ def fetch_drive_files():
 
     params = {
         'q': f"'{folder_id}' in parents",
-        'key': GOOPLE_API_KEY,  # Use the correct environment variable
+        'key': GOOGLE_API_KEY,  # Use the correct environment variable
         'fields': 'nextPageToken, files(id, name, mimeType)',
         'pageSize': 1000
     }
