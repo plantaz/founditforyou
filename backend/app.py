@@ -7,6 +7,11 @@ import numpy as np
 import requests
 from io import BytesIO
 
+# Preload the Facenet model during app startup
+print("Loading Facenet model...")
+DeepFace.build_model("Facenet")  # Preload the Facenet model
+print("Facenet model loaded successfully.")
+
 app = Flask(__name__)
 
 # Enable CORS for all routes and allow requests from your Netlify domain
@@ -45,7 +50,7 @@ def fetch_drive_files():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/analyze_face', methods=['POST', 'OPTIONS'])  # Ensure this route exists
+@app.route('/analyze_face', methods=['POST', 'OPTIONS'])
 def analyze_face():
     if request.method == 'OPTIONS':  # Handle preflight request
         return '', 200
@@ -54,14 +59,28 @@ def analyze_face():
     if not reference_image:
         return jsonify({'error': 'No reference image provided'}), 400
 
+    # Check file size (limit to 5 MB)
+    max_size = 5 * 1024 * 1024  # 5 MB
+    if len(reference_image.read()) > max_size:
+        return jsonify({'error': 'File size exceeds 5 MB limit'}), 413  # HTTP 413 Payload Too Large
+
+    # Reset file pointer after checking size
+    reference_image.seek(0)
+
     # Save the reference image temporarily
     ref_img_path = 'reference_image.jpg'
     reference_image.save(ref_img_path)
 
     try:
-        # Load the reference image for analysis
+        # Resize the image to reduce memory usage
         img = cv2.imread(ref_img_path)
-        result = DeepFace.analyze(img, actions=['age', 'gender', 'race', 'emotion'])
+        if img is None:
+            return jsonify({'error': 'Invalid image format'}), 400
+
+        img = cv2.resize(img, (160, 160))  # Resize to 160x160 pixels
+
+        # Perform face analysis using DeepFace
+        result = DeepFace.analyze(img, actions=['age', 'gender', 'race', 'emotion'], enforce_detection=False)
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
