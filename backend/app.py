@@ -6,16 +6,35 @@ import cv2
 import numpy as np
 import requests
 from io import BytesIO
-
-# Preload the Facenet model during app startup
-print("Loading Facenet model...")
-DeepFace.build_model("Facenet")  # Preload the Facenet model
-print("Facenet model loaded successfully.")
+from pathlib import Path
 
 app = Flask(__name__)
 
-# Enable CORS for all routes and allow requests from your Netlify domain
-CORS(app, resources={r"/*": {"origins": "https://founditforyou.netlify.app"}})
+# Enable CORS for all routes and allow requests from your local frontend
+CORS(app, resources={r"/*": {"origins": "http://localhost:8080", "allow_headers": ["Content-Type"], "expose_headers": ["Content-Type"]}})
+
+# Set the path to local models
+models_dir = Path(__file__).parent / "models"
+destination_dir = Path(__file__).parent / ".deepface" / "weights"
+
+# Ensure the destination directory exists
+if not destination_dir.exists():
+    destination_dir.mkdir(parents=True, exist_ok=True)
+
+# Copy local models to the expected directory
+for model_file in models_dir.glob("*"):
+    destination = destination_dir / model_file.name
+    if not destination.exists():
+        print(f"Copying {model_file.name} to {destination}")
+        model_file.copy(destination)
+
+# Preload models after copying
+print("Loading required DeepFace models...")
+models = {
+    "SFace": DeepFace.build_model("SFace"),
+    "Emotion": DeepFace.build_model("Emotion")
+}
+print("DeepFace models loaded successfully.")
 
 # Load environment variables
 GOOGLE_API_KEY = os.getenv('MY_GOOGLE_API_KEY')
@@ -30,7 +49,7 @@ def fetch_drive_files():
 
     params = {
         'q': f"'{folder_id}' in parents",
-        'key': GOOGLE_API_KEY,  # Use the correct environment variable
+        'key': GOOGLE_API_KEY,
         'fields': 'nextPageToken, files(id, name, mimeType)',
         'pageSize': 1000
     }
@@ -72,15 +91,21 @@ def analyze_face():
     reference_image.save(ref_img_path)
 
     try:
-        # Resize the image to reduce memory usage
+        # Read and resize the image to reduce memory usage
         img = cv2.imread(ref_img_path)
         if img is None:
             return jsonify({'error': 'Invalid image format'}), 400
 
-        img = cv2.resize(img, (160, 160))  # Resize to 160x160 pixels
+        img = cv2.resize(img, (160, 160))  # Resize to SFace input size
 
-        # Perform face analysis using DeepFace
-        result = DeepFace.analyze(img, actions=['age', 'gender', 'race', 'emotion'], enforce_detection=False)
+        # Perform face analysis using the preloaded SFace model
+        result = DeepFace.analyze(
+            img_path=img,
+            actions=['age', 'gender', 'race', 'emotion'],
+            model_name="SFace",  # Use SFace for lower memory usage
+            enforce_detection=False,
+            detector_backend='skip'
+        )
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -90,7 +115,7 @@ def analyze_face():
             os.remove(ref_img_path)
 
 
-@app.route('/search_faces', methods=['POST', 'OPTIONS'])  # Ensure this route exists
+@app.route('/search_faces', methods=['POST', 'OPTIONS'])
 def search_faces():
     if request.method == 'OPTIONS':  # Handle preflight request
         return '', 200
@@ -109,16 +134,25 @@ def search_faces():
     for target_image_url in target_images:
         try:
             # Fetch the target image from Google Drive
-            response = requests.get(target_image_url)
+            response = requests.get(target_image_url, timeout=10)  # Add a timeout for fetching images
             img_bytes = BytesIO(response.content)
             img_array = np.asarray(bytearray(img_bytes.read()), dtype=np.uint8)
             target_img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
-            # Perform face verification
+            if target_img is None:
+                results.append({'error': 'Failed to load target image'})
+                continue
+
+            # Resize target image to reduce memory usage
+            target_img = cv2.resize(target_img, (160, 160))
+
+            # Perform face verification using the preloaded SFace model
             verification_result = DeepFace.verify(
                 img1_path=ref_img_path,
                 img2_path=target_img,
-                model_name="Facenet"  # Use Facenet for better accuracy
+                model_name="SFace",
+                enforce_detection=False,
+                detector_backend='skip'
             )
             results.append(verification_result)
         except Exception as e:
